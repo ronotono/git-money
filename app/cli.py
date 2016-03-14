@@ -14,6 +14,7 @@ BITGO_PATH = repository['bitgo_path']
 @click.command()
 @click.option('--issue', '-i', default=False)
 @click.option('--description', '-d', default=False)
+@click.option('--amount', 'd', default=0)
 @click.option('--init', is_flag=True, default=False)
 def cli(issue, description, init):
     try:
@@ -34,6 +35,6 @@ def cli(issue, description, init):
         os.system(BITGO_PATH + '/bin/bitgo-express --debug --port 3080 --env prod --bind localhost &')
         server.run()
         return time.sleep(10)
-    return github.create_issue(issue, description)
+    return github.create_issue(issue, description, amount)
 
 

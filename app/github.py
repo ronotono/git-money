@@ -11,6 +11,8 @@ config_path = os.path.dirname(os.path.realpath(__file__)) + '/../config/config.j
 repository = json.loads(io.open(config_path, 'r').read())
 repository_path = repository['path']
 GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
+BOUNTY_WALLET_ID = os.environ['BOUNTY_WALLET_ID']
+BOUNTY_WALLET_PASSWORD = os.environ['BOUNTY_WALLET_PASSWORD']
 DEFAULT_WALLET_PATH = os.path.join(os.path.expanduser('~'),
                                    ".two1",
                                    "wallet",
@@ -27,38 +29,38 @@ class github(object):
             print("Github issue fetch failed, please ensure that your repository path is properly configured")
         return r.json()['title']
         
-    def _create_bitgo_wallet(issue_title, repository_path):
+    def _create_bitgo_wallet(issue_title, repository_path, bounty_amount):
         issue_title_encode = issue_title.encode('utf-8')
         repository_path_encode = repository_path.encode('utf-8')
-        print('Issue title encode: ')
-        print(issue_title_encode)
-        print(type(issue_title_encode))
-        print('Repository path encode: ')
-        print(repository_path_encode)
-        print(type(repository_path_encode))
         passphrase = hashlib.sha256(repository_path_encode + issue_title_encode).hexdigest()
-        print('Passphrase: ' + passphrase)
-        print(type(passphrase))
         multisig_wallet.create_wallet(issue_title, passphrase)
-        print('Wallet create')
         bounty_address = multisig_wallet.generate_address(str(issue_title))
-        print('Bounty address created')
-        print(bounty_address)
+        multisig_wallet.send_bitcoin_simple(BOUNTY_WALLET_ID, bounty_address, bounty_amount, BOUNTY_WALLET_PASSWORD)
         return bounty_address
 
-    def _decorate_issue_params(issue_title, description):
-        bitcoin_address = github._create_bitgo_wallet(issue_title, repository_path)
+    def _decorate_issue_params(issue_title, description, amount_in_satoshis):
+        bitcoin_address = github._create_bitgo_wallet(issue_title, repository_path, amount_in_satoshis)
         bitcoin_address_url = 'https://live.blockcypher.com/btc/address/' + bitcoin_address
         issue_title = issue_title
         description = "**Current Bounty: TBD** [Proof](" + bitcoin_address_url + ")\n*Submit a pull request containing your bitcoin address that resolves this issue and automatically get paid the amount above if it's merged.*\n\n**Bounty Details:**\n" + description
         params = { "title": issue_title, "body": description }
         params = json.dumps(params).encode('utf8')
         return params
-    
-    @staticmethod
-    def create_issue(issue_title, description):
 
-        params = github._decorate_issue_params(issue_title, description)
+    @staticmethod
+    def _get_bounty_amount(amount_in_usd):
+        usd_per_btc = requests.get(
+            'https://bitpay.com/api/rates/usd').json()['rate']
+        bounty_in_btc = round(usd_per_btc / int(amount_in_usd), 4)
+        bounty_in_satoshi = int(bounty_in_btc * 10**8)
+        return bounty_in_satoshi
+        
+    @staticmethod
+    def create_issue(issue_title, description, amount_in_usd):
+        
+        amount_in_satoshi = _get_bounty_amount(amount_in_usd)
+        
+        params = github._decorate_issue_params(issue_title, description, amount_in_satoshi)
 
         github_url = "https://api.github.com/repos/" + repository['path'] + "/issues"
         headers = { "Authorization": "token " + GITHUB_TOKEN,
