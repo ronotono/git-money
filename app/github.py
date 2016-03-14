@@ -1,12 +1,13 @@
 import json, os, io, datetime, hashlib
 import requests, urllib
 from flask import g
+from app.twitter import twitter
 from commonregex import CommonRegex
 from two1.lib.wallet.hd_account import HDAccount
 from two1.lib.wallet.two1_wallet import Two1Wallet
 from app.multisig_wallet import multisig_wallet
 
-config_path = os.path.dirname(os.path.realpath(__file__)) + '/../config/repos.json'
+config_path = os.path.dirname(os.path.realpath(__file__)) + '/../config/config.json'
 repository = json.loads(io.open(config_path, 'r').read())
 repository_path = repository['path']
 GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
@@ -14,6 +15,7 @@ DEFAULT_WALLET_PATH = os.path.join(os.path.expanduser('~'),
                                    ".two1",
                                    "wallet",
                                    "multisig_wallet.json")
+GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
 
 class github(object):
     def get_github_issue(issue_number):
@@ -47,9 +49,7 @@ class github(object):
     def _decorate_issue_params(issue_title, description):
         bitcoin_address = github._create_bitgo_wallet(issue_title, repository_path)
         bitcoin_address_url = 'https://live.blockcypher.com/btc/address/' + bitcoin_address
-#        bounty_image = 'http://git-money-badge.mybluemix.net/badge/' + bitcoin_address
         issue_title = issue_title
-#        description = "<h6>Reward  (" + bitcoin_address + ")</h>\n\n![BOUNTY](" + bounty_image + ")" + "\n\n" + description
         description = "**Current Bounty: TBD** [Proof](" + bitcoin_address_url + ")\n*Submit a pull request containing your bitcoin address that resolves this issue and automatically get paid the amount above if it's merged.*\n\n**Bounty Details:**\n" + description
         params = { "title": issue_title, "body": description }
         params = json.dumps(params).encode('utf8')
@@ -80,7 +80,9 @@ class github(object):
 
         with open(DEFAULT_WALLET_PATH, 'w') as f:
             f.write(json.dumps(json_data))
-        
+
+        # Send tweet
+        twitter.send("Bounty Issued: " + issue_title + " https://github.com/21hackers/git-money/issues/" + str(issue_number))
         # TODO: Take the response and check for an ACK, then return true, else handle error
         print(r.json())
 

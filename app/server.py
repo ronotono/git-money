@@ -12,6 +12,7 @@ import hmac
 from app.github import github
 from hashlib import sha1
 from app.multisig_wallet import multisig_wallet
+from app.twitter import twitter
 from PIL import Image, ImageFont, ImageDraw
 from flask import Flask, request, abort, send_file
 from commonregex import CommonRegex
@@ -28,7 +29,7 @@ module.
     import flask-github-webhook-handler.index as handler
 
 """
-config_path = os.path.dirname(os.path.realpath(__file__)) + '/../config/repos.json'
+config_path = os.path.dirname(os.path.realpath(__file__)) + '/../config/config.json'
 repository = json.loads(io.open(config_path, 'r').read())
 repository_path = repository['path']
 
@@ -62,6 +63,8 @@ def index():
             return json.dumps({'msg': 'Hi!'})
 
         if request.headers.get('X-GitHub-Event') == 'pull_request':
+            if (request.json['pull_request']['user']['site_admin'] == 'false'):
+                return json.dumps({'message': 'Pull request not submitted by site admin'})
             merge_state = request.json['pull_request']['state']
             merge_body = request.json['pull_request']['body']
             if (merge_state == 'closed'):
@@ -87,11 +90,23 @@ def index():
                 except:
                     print('Wallet not found, creating new user...')
 
+                # Set up sending of the bounty
+                
                 issue_title = wallet_name
                 repository_path_encode = repository_path.encode('utf-8')
                 issue_title_encode = issue_title.encode('utf-8')
                 passphrase = hashlib.sha256(repository_path_encode + issue_title_encode).hexdigest()
                 multisig_wallet.send_bitcoin_simple(walletId, str(addresses), amount, passphrase)
+
+                # Set up sending of the tweet
+                
+                usd_per_btc = requests.get(
+                    'https://bitpay.com/api/rates/usd').json()['rate']
+                bounty_in_btc = round((int(bounty_in_satoshi) / 10**8), 3)
+                bounty_in_usd = round(bounty_in_btc * usd_per_btc, 2)
+                url = 'https://github.com/21hackers/git-money/issues/'+ parsed_bounty_issue
+                twitter.send('Bounty Granted (' + amount + ' bits ~ $' + bounty_in_usd + '): ' + issue_title + ' ' + url)
+
                 return json.dumps({'message': 'Pull request received'})
             return json.dumps({'message': 'Pull request payout failed'})
 
