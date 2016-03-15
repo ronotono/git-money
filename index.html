@@ -18,6 +18,34 @@
 <!-- SITE TITLE -->
 <title>Git Money - Work from anywhere</title>
 
+<!-- LANGUAGE DETECTION -->
+<script>
+		var language = navigator.languages ? navigator.languages[0] : (navigator.language || navigator.userLanguage);
+		var redirectTo = function(lang) { window.location.replace('/translations/' + lang + '.html') };
+		switch (language.split('-')[0]) {
+			case 'fr':
+				redirectTo('french');
+				break;
+			case 'de':
+				redirectTo('german');
+				break;
+			case 'el':
+				redirectTo('greek');
+				break;
+			case 'hi':
+				redirectTo('hindi');
+				break;
+			case 'ja':
+				redirectTo('japanese');
+				break;
+			case 'ru':
+				redirectTo('russian');
+				break;
+			case 'es':
+				redirectTo('spanish');
+				break;
+		}
+</script>
 <!-- =========================
       FAV AND TOUCH ICONS
 ============================== -->
